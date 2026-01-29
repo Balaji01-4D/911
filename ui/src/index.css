@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-100 antialiased;
+  }
+}
+
+/* Custom scrollbar for data-dense look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-slate-900;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-700 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-600;
+}
+
+/* Custom Popup Styling for Dark Mode */
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 4px;
+}
+.leaflet-container {
+  background: #020617; /* Matches slate-950 */
+}
