@@ -2,18 +2,21 @@ from sqlalchemy import Column, Integer, String, Text, Enum as SQLEnum, DateTime,
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.models.base import Base
-from app.models.enums import ResponderStatus, IncidentStatus, IncidentCategory
+from app.models.enums import ResponderStatus, IncidentStatus, IncidentCategory, ResponderType
 
 class Responder(Base):
     __tablename__ = "responders"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    department = Column(String, nullable=True)
-    phone = Column(String, nullable=True)
+    type = Column(SQLEnum(ResponderType), nullable=False)
     status = Column(SQLEnum(ResponderStatus), default=ResponderStatus.IDLE)
-    current_lat = Column(Float, nullable=True)
-    current_long = Column(Float, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    current_incident_id = Column(Integer, ForeignKey("incidents.id"), nullable=True)
+    
+    # Relationships
+    incident = relationship("Incident", back_populates="responders")
 
 class EmergencyCall(Base):
     __tablename__ = "emergency_calls"
@@ -23,6 +26,8 @@ class EmergencyCall(Base):
     caller_phone = Column(String, nullable=True)
     raw_transcript = Column(Text, nullable=False)
     media_url = Column(Text, nullable=True)
+    image_url = Column(Text, nullable=True)
+    audio_url = Column(Text, nullable=True)
     location_lat = Column(Float, nullable=True)
     location_long = Column(Float, nullable=True)
     
@@ -42,3 +47,4 @@ class Incident(Base):
 
     # Relationships
     call = relationship("EmergencyCall", back_populates="incidents")
+    responders = relationship("Responder", back_populates="incident")

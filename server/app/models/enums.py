@@ -2,8 +2,13 @@ from enum import Enum
 
 class ResponderStatus(str, Enum):
     IDLE = "idle"
-    IN_ROUTE = "in-route"
+    DISPATCHED = "dispatched"
     BUSY = "busy"
+
+class ResponderType(str, Enum):
+    POLICE = "police"
+    FIRE = "fire"
+    MEDICAL = "medical"
 
 class IncidentStatus(str, Enum):
     PENDING = "pending"

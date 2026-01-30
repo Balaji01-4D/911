@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str = "emergency_db"
+    
+    GROQ_API_KEY: str = "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"  
 
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
