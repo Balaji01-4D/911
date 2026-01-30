@@ -1,7 +1,7 @@
 import json
 from groq import AsyncGroq
 from app.core.config import settings
-from app.models.enums import IncidentCategory
+from app.models.enums import IncidentCategory, ResponderType
 
 client = AsyncGroq(
     api_key=settings.GROQ_API_KEY,
@@ -16,6 +16,19 @@ You must output a JSON object with the following fields:
 
 If the input is unclear or doesn't match a clear emergency, make a best guess but keep priority appropriate.
 Ensure strict JSON format.
+"""
+
+DISPATCH_PROMPT = f"""
+You are an intelligent dispatch command assistant. 
+Based on the incident description and category, determine the SINGLE most appropriate type of responder unit to dispatch.
+Available Responder Types: {', '.join([r.value for r in ResponderType])}.
+
+Output a JSON object with:
+1. "recommended_type": One of [{', '.join([r.value for r in ResponderType])}]
+2. "reasoning": Brief explanation (max 10 words).
+
+Example: For "House fire", return {{"recommended_type": "fire", "reasoning": "Standard protocol for structure fires"}}
+Example: For "Car crash with injuries", return {{"recommended_type": "medical", "reasoning": "Immediate medical attention required"}}
 """
 
 async def analyze_incident_description(description: str) -> dict:
@@ -45,4 +58,34 @@ async def analyze_incident_description(description: str) -> dict:
             "priority_score": 5,
             "category": "suspicious_activity",
             "summary": "Processing failed, check details."
+        }
+
+async def recommend_response_unit(incident_data: dict) -> dict:
+    """
+    incident_data should contain 'description' and/or 'category'
+    """
+    try:
+        content = f"Incident Analysis: {json.dumps(incident_data)}"
+        
+        completion = await client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": DISPATCH_PROMPT
+                },
+                {
+                    "role": "user",
+                    "content": content,
+                }
+            ],
+            model="llama-3.3-70b-versatile",
+            temperature=0.1,
+            response_format={"type": "json_object"}
+        )
+        return json.loads(completion.choices[0].message.content)
+    except Exception as e:
+        print(f"Error in Dispatch recommendation: {e}")
+        return {
+            "recommended_type": "police", # Default fallback
+            "reasoning": "System fallback"
         }

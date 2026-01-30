@@ -26,3 +26,10 @@ class ResponderResponse(ResponderBase):
 class DispatchRequest(BaseModel):
     responder_id: int
     incident_id: int
+
+class RecommendationRequest(BaseModel):
+    incident_id: int
+
+class RecommendationResponse(BaseModel):
+    recommended_type: ResponderType
+    reasoning: str

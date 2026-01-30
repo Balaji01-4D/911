@@ -5,11 +5,37 @@ from sqlalchemy import select
 from app.core.database import get_db
 from app.models.models import Responder, Incident
 from app.models.enums import ResponderStatus, ResponderType, IncidentStatus
-from app.schemas.responder import ResponderResponse, ResponderUpdateLocation, DispatchRequest
+from app.schemas.responder import ResponderResponse, ResponderUpdateLocation, DispatchRequest, RecommendationRequest, RecommendationResponse
 from app.utils.distance import calculate_haversine_distance
+from app.ai.client import recommend_response_unit
 import random
 
 router = APIRouter()
+
+@router.post("/recommend", response_model=RecommendationResponse)
+async def recommend_responder(
+    request: RecommendationRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Use AI to determine the best responder type for an incident.
+    """
+    result = await db.execute(select(Incident).where(Incident.id == request.incident_id))
+    incident = result.scalars().first()
+    
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+        
+    # Prepare context for AI
+    context = {
+        "description": incident.summary,
+        "category": incident.category.value if incident.category else "unknown",
+        "priority": incident.priority_score
+    }
+    
+    recommendation = await recommend_response_unit(context)
+    
+    return recommendation
 
 @router.get("/nearby", response_model=List[ResponderResponse])
 async def get_nearby_responders(
