@@ -15,16 +15,16 @@ export default function SeverityBadge({ score }: SeverityBadgeProps) {
   return (
     <div className={clsx(
       "flex items-center gap-2 px-2 py-1 rounded text-xs font-mono font-medium border",
-      isCritical && "bg-red-500/10 text-red-500 border-red-500/20",
-      isHigh && "bg-amber-500/10 text-amber-500 border-amber-500/20",
-      isLow && "bg-blue-500/10 text-blue-500 border-blue-500/20",
+      isCritical && "bg-cat-red/10 text-cat-red border-cat-red/20",
+      isHigh && "bg-cat-peach/10 text-cat-peach border-cat-peach/20",
+      isLow && "bg-cat-blue/10 text-cat-blue border-cat-blue/20",
       isCritical && "animate-pulse" // Simple pulse for critical
     )}>
       <div className={clsx(
         "w-1.5 h-1.5 rounded-full",
-        isCritical && "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]",
-        isHigh && "bg-amber-500",
-        isLow && "bg-blue-500"
+        isCritical && "bg-cat-red shadow-[0_0_8px_rgba(243,139,168,0.5)]",
+        isHigh && "bg-cat-peach",
+        isLow && "bg-cat-blue"
       )} />
       SCORE: {score.toFixed(1)}
     </div>

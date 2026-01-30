@@ -11,10 +11,21 @@ export default {
         mono: ['JetBrains Mono', 'monospace'],
       },
       colors: {
-        slate: {
-          850: '#151e2e',
-          900: '#0f172a',
-          950: '#020617',
+        cat: {
+          base: '#1e1e2e',
+          mantle: '#181825',
+          crust: '#11111b',
+          surface0: '#313244',
+          surface1: '#45475a',
+          text: '#cdd6f4',
+          subtext0: '#a6adc8',
+          blue: '#89b4fa',
+          red: '#f38ba8',
+          yellow: '#f9e2af',
+          green: '#a6e3a1',
+          peach: '#fab387',
+          lavender: '#b4befe',
+          overlay0: '#6c7086',
         }
       }
     },
