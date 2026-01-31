@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Incident, BASE_URL } from '@/lib/api';
-import { Phone, MapPin, ClipboardList, CheckCircle2, AlertTriangle, Clock, ImageIcon, Volume2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Incident, BASE_URL, getIncidentAnalysis, DetailedAnalysis } from '@/lib/api';
+import { Phone, MapPin, ClipboardList, CheckCircle2, AlertTriangle, Clock, ImageIcon, Volume2, Brain, Wrench, Users, Shield, ListChecks, Loader2 } from 'lucide-react';
 import SeverityBadge from './SeverityBadge';
 import { format } from 'date-fns';
 import DispatchModal from './DispatchModal';
@@ -12,6 +12,39 @@ interface IncidentDetailsProps {
 
 export default function IncidentDetails({ incident, onUpdateStatus }: IncidentDetailsProps) {
   const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [address, setAddress] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<DetailedAnalysis | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+
+  useEffect(() => {
+    if (incident?.call?.location_lat && incident?.call?.location_long) {
+        setAddress(null); // Reset address while loading
+        const { location_lat: lat, location_long: lon } = incident.call;
+        
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.display_name) {
+                    // Simplify address: Take first 3 parts or full if short
+                    const parts = data.display_name.split(', ');
+                    setAddress(parts.slice(0, 3).join(', '));
+                }
+            })
+            .catch(() => setAddress(null));
+    }
+  }, [incident]);
+
+  // Fetch AI analysis
+  useEffect(() => {
+    if (incident?.id) {
+        setAnalysis(null);
+        setAnalysisLoading(true);
+        getIncidentAnalysis(incident.id)
+            .then(data => setAnalysis(data))
+            .catch(() => setAnalysis(null))
+            .finally(() => setAnalysisLoading(false));
+    }
+  }, [incident?.id]);
 
   if (!incident) {
     return (
@@ -26,9 +59,9 @@ export default function IncidentDetails({ incident, onUpdateStatus }: IncidentDe
 
   return (
     <>
-    <div className="bg-cat-base/50 backdrop-blur-md border-l border-cat-surface0 h-full flex flex-col">
+    <div className="bg-cat-base/50 backdrop-blur-md border-l border-cat-surface0 h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="p-6 border-b border-cat-surface0 space-y-4">
+      <div className="p-6 border-b border-cat-surface0 space-y-4 flex-shrink-0">
         <div className="flex items-start justify-between gap-4">
             <h2 className="text-xl font-semibold leading-tight text-cat-text">
                 {incident.summary || incident.call?.raw_transcript || "Incident Details"}
@@ -128,24 +161,120 @@ export default function IncidentDetails({ incident, onUpdateStatus }: IncidentDe
                     <MapPin className="w-4 h-4 text-cat-overlay0 mt-0.5" />
                     <div>
                         <div className="text-xs text-cat-overlay0 mb-0.5">LOCATION</div>
-                        <div className="font-mono text-sm text-cat-text">
-                            {incident.call?.location_lat?.toFixed(6) ?? 'N/A'}, <br/>
-                            {incident.call?.location_long?.toFixed(6) ?? 'N/A'}
+                        <div className="font-mono text-sm text-cat-text break-words pr-2">
+                            {address ? (
+                                <span className="text-cat-blue">{address}</span>
+                            ) : (
+                                <>
+                                    {incident.call?.location_lat?.toFixed(6) ?? 'N/A'}, <br/>
+                                    {incident.call?.location_long?.toFixed(6) ?? 'N/A'}
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
              </div>
         </div>
 
-        {/* AI Analysis Placeholder */}
+        {/* AI Analysis */}
         <div className="space-y-3">
             <h3 className="text-xs font-mono uppercase text-cat-subtext0 tracking-wider flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-cat-lavender animate-pulse"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-cat-lavender"></span>
                 AI Analysis
             </h3>
-            <div className="text-sm text-cat-overlay0 italic">
-                Waiting for AI processing...
-            </div>
+            
+            {analysisLoading ? (
+                <div className="p-6 rounded-lg bg-cat-crust border border-cat-surface0 flex items-center justify-center gap-3">
+                    <Loader2 className="w-5 h-5 text-cat-lavender animate-spin" />
+                    <span className="text-sm text-cat-overlay0">Analyzing incident...</span>
+                </div>
+            ) : analysis ? (
+                <div className="p-4 rounded-lg bg-cat-crust border border-cat-surface0 space-y-4">
+                    {/* Situation */}
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 rounded bg-cat-blue/10 border border-cat-blue/20">
+                            <Brain className="w-4 h-4 text-cat-blue" />
+                        </div>
+                        <div className="flex-1">
+                            <div className="text-[10px] text-cat-overlay0 uppercase">What is Happening</div>
+                            <div className="text-sm text-cat-text leading-relaxed">
+                                {analysis.situation}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Rescue Type */}
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded bg-cat-red/10 border border-cat-red/20">
+                            <Shield className="w-4 h-4 text-cat-red" />
+                        </div>
+                        <div>
+                            <div className="text-[10px] text-cat-overlay0 uppercase">Rescue Type Required</div>
+                            <div className="text-sm font-bold text-cat-text">
+                                {analysis.rescue_type}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Responders Count */}
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 rounded bg-cat-green/10 border border-cat-green/20">
+                            <Users className="w-4 h-4 text-cat-green" />
+                        </div>
+                        <div className="flex-1">
+                            <div className="text-[10px] text-cat-overlay0 uppercase">Responders Needed</div>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                                {Object.entries(analysis.responders_count).map(([type, count]) => (
+                                    <span key={type} className="px-2 py-1 rounded bg-cat-surface0 text-xs font-mono text-cat-text capitalize">
+                                        {type}: <span className="font-bold text-cat-green">{count}</span>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Equipment */}
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 rounded bg-cat-peach/10 border border-cat-peach/20">
+                            <Wrench className="w-4 h-4 text-cat-peach" />
+                        </div>
+                        <div className="flex-1">
+                            <div className="text-[10px] text-cat-overlay0 uppercase">Equipment Required</div>
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                                {analysis.equipment.map((item, idx) => (
+                                    <span key={idx} className="px-2 py-0.5 rounded-full bg-cat-surface0 border border-cat-surface1 text-xs text-cat-subtext0">
+                                        {item}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Instructions */}
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 rounded bg-cat-mauve/10 border border-cat-mauve/20">
+                            <ListChecks className="w-4 h-4 text-cat-mauve" />
+                        </div>
+                        <div className="flex-1">
+                            <div className="text-[10px] text-cat-overlay0 uppercase mb-2">Response Instructions</div>
+                            <ol className="space-y-1.5">
+                                {analysis.instructions.map((instruction, idx) => (
+                                    <li key={idx} className="flex items-start gap-2 text-sm text-cat-text">
+                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-cat-mauve/20 text-cat-mauve text-xs font-bold flex items-center justify-center">
+                                            {idx + 1}
+                                        </span>
+                                        <span>{instruction}</span>
+                                    </li>
+                                ))}
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="p-4 rounded-lg bg-cat-crust border border-cat-surface0 text-sm text-cat-overlay0 italic">
+                    Unable to load AI analysis
+                </div>
+            )}
         </div>
       </div>
     </div>

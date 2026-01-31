@@ -51,6 +51,24 @@ export const dispatchResponder = async (responderId: number, incidentId: number)
     return response.data;
 };
 
+export const getResponderRecommendation = async (incidentId: number) => {
+    const response = await api.post('/responders/recommend', { incident_id: incidentId });
+    return response.data; // { recommended_type: 'fire', reasoning: '...' }
+};
+
+export interface DetailedAnalysis {
+    situation: string;
+    equipment: string[];
+    responders_count: Record<string, number>;
+    rescue_type: string;
+    instructions: string[];
+}
+
+export const getIncidentAnalysis = async (incidentId: number): Promise<DetailedAnalysis> => {
+    const response = await api.get(`/incidents/${incidentId}/analysis`);
+    return response.data;
+};
+
 export interface Responder {
     id: number;
     name: string;

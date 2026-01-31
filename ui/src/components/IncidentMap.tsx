@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useRef } from 'react';
 import Map, { Marker, NavigationControl, Source, Layer, Popup, MapRef } from 'react-map-gl/maplibre';
 import type { LayerProps } from 'react-map-gl/maplibre';
 import { Incident, fetchPredictions, Prediction, Responder } from '@/lib/api';
-import { MapPin, AlertTriangle, Flame, TrendingUp, Shield, Stethoscope, Car } from 'lucide-react';
+import { MapPin, AlertTriangle, Flame, TrendingUp, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import { useNearbyResponders } from '@/hooks/useResponders';
@@ -186,7 +186,7 @@ export default function IncidentMap({ incidents, selectedId, onSelect }: Inciden
         initialViewState={initialViewState}
         style={{width: '100%', height: '100%'}}
         mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-        // attributionControl={false}
+        attributionControl={false}
       >
         <NavigationControl position="top-left" />
 
@@ -209,9 +209,13 @@ export default function IncidentMap({ incidents, selectedId, onSelect }: Inciden
             `}>
                  <div className={`
                     w-8 h-8 rounded-full shadow-lg flex items-center justify-center border-2 border-cat-base
-                    ${incident.priority_score > 7 ? 'bg-cat-red animate-bounce' : 'bg-cat-blue'}
+                    ${incident.status === 'resolved' ? 'bg-cat-green' : 
+                      incident.status === 'dispatched' ? 'bg-cat-mauve' :
+                      incident.priority_score > 7 ? 'bg-cat-red animate-bounce' : 'bg-cat-blue'}
                  `}>
-                    {incident.priority_score > 7 ? (
+                    {incident.status === 'resolved' ? (
+                        <CheckCircle2 className="w-4 h-4 text-cat-base" />
+                    ) : incident.priority_score > 7 ? (
                         <AlertTriangle className="w-4 h-4 text-cat-base" />
                     ) : (
                         <MapPin className="w-4 h-4 text-cat-base" />
@@ -219,7 +223,7 @@ export default function IncidentMap({ incidents, selectedId, onSelect }: Inciden
                  </div>
                  {/* Tooltip on hover */}
                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-cat-base text-cat-text text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-cat-surface0">
-                    ID: {incident.id} • Score: {incident.priority_score}
+                    ID: {incident.id} • {incident.status.toUpperCase()}
                  </div>
             </div>
           </Marker>
@@ -257,54 +261,6 @@ export default function IncidentMap({ incidents, selectedId, onSelect }: Inciden
             </div>
           </Popup>
         )}
-
-        {/* Responder Markers */}
-        {responders?.map((responder) => (
-             <Marker
-                key={`responder-${responder.id}`}
-                longitude={responder.longitude}
-                latitude={responder.latitude}
-                anchor="center"
-             >
-                <div className={`
-                    p-1.5 rounded-full border-2 shadow-sm transition-all
-                    ${responder.status === 'idle' ? 'bg-cat-base border-cat-green' : 'bg-cat-surface0 border-cat-overlay0'}
-                    ${responder.status === 'dispatched' ? 'animate-pulse' : ''}
-                `}>
-                    {responder.type === 'police' && <Shield className="w-4 h-4 text-blue-400" />}
-                    {responder.type === 'fire' && <Flame className="w-4 h-4 text-red-400" />}
-                    {responder.type === 'medical' && <Stethoscope className="w-4 h-4 text-emerald-400" />}
-                </div>
-             </Marker>
-        ))}
-
-        {/* Dispatch Lines */}
-        {activeIncident && responders?.map((r) => (
-            <Source 
-                key={`line-${r.id}`} 
-                type="geojson" 
-                data={{
-                    type: 'Feature',
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: [
-                            [r.longitude, r.latitude],
-                            [activeIncident.call!.location_long!, activeIncident.call!.location_lat!]
-                        ]
-                    }
-                } as any}
-            >
-                <Layer
-                    id={`route-${r.id}`}
-                    type="line"
-                    paint={{
-                        'line-color': r.status === 'dispatched' ? '#a6e3a1' : '#45475a',
-                        'line-width': 2,
-                        'line-dasharray': [2, 2]
-                    }}
-                />
-            </Source>
-        ))}
 
       </Map>
     </div>

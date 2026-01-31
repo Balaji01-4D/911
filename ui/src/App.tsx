@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
@@ -7,6 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import IncidentFeed from '@/components/IncidentFeed';
 import IncidentDetails from '@/components/IncidentDetails';
 import IncidentMap from '@/components/IncidentMap';
+import RespondersMap from '@/components/RespondersMap';
 
 // Create a client
 const queryClient = new QueryClient();
@@ -27,8 +27,54 @@ function FullMapController({ incidents, onSelect }: { incidents: Incident[], onS
     );
 }
 
+function IncidentDashboard({ incidents, isLoading, onUpdateStatus }: { incidents: Incident[], isLoading: boolean, onUpdateStatus: (id: number, status: string) => void }) {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const selectedId = id ? parseInt(id) : null;
+    const selectedIncident = incidents.find(i => i.id === selectedId) || null;
+    
+    const handleSelect = (newId: number) => {
+        navigate(`/incidents/${newId}`);
+    };
+
+    return (
+        <div className="grid grid-cols-12 h-full">
+            {/* Feed Column */}
+            <div className="col-span-5 border-r border-cat-surface0 flex flex-col h-full bg-cat-base/50 relative">
+                    <div className="p-4 border-b border-cat-surface0 flex items-center justify-between backdrop-blur-sm sticky top-0 z-10 bg-cat-crust/80">
+                    <div>
+                        <h1 className="text-lg font-bold text-cat-text tracking-tight">Incoming Feed</h1>
+                        <p className="text-xs text-cat-overlay0 font-mono">LIVE MONITORING ACTIVE</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-cat-green animate-pulse"></div>
+                            <span className="text-[10px] font-mono text-cat-green">SYSTEM ONLINE</span>
+                    </div>
+                </div>
+                
+                {isLoading ? (
+                    <div className="p-10 text-center text-cat-overlay0 font-mono text-sm">LOADING FEED...</div>
+                ) : (
+                    <IncidentFeed 
+                        incidents={incidents} 
+                        selectedId={selectedId} 
+                        onSelect={handleSelect} 
+                    />
+                )}
+            </div>
+
+                {/* Details Column */}
+            <div className="col-span-7 h-full overflow-hidden">
+                <IncidentDetails 
+                    incident={selectedIncident} 
+                    onUpdateStatus={onUpdateStatus}
+                />
+            </div>
+        </div>
+    );
+}
+
 function Dashboard() {
-  const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -49,18 +95,9 @@ function Dashboard() {
   const handleUpdateStatus = (id: number, status: string) => {
     updateMutation.mutate({ id, status });
   };
-
-  const selectedIncident = incidents.find((i: Incident) => i.id === selectedIncidentId) || null;
-
-  const handleSelectIncident = (id: number) => {
-      setSelectedIncidentId(id);
-      // If we are on the dashboard (root), we just select it.
-      // If we were on map, we might want to stay there or show details popover? 
-      // For now, details view is part of the main dashboard route structure
-  };
   
   const handleMapSelect = (id: number) => {
-      navigate(`/map/incident/${id}`);
+      navigate(`/incidents/${id}`);
   };
 
   return (
@@ -71,39 +108,11 @@ function Dashboard() {
             <Routes>
                 {/* Default Dashboard View: Feed + Details */}
                 <Route path="/" element={
-                     <div className="grid grid-cols-12 h-full">
-                        {/* Feed Column */}
-                        <div className="col-span-5 border-r border-cat-surface0 flex flex-col h-full bg-cat-base/50 relative">
-                             <div className="p-4 border-b border-cat-surface0 flex items-center justify-between backdrop-blur-sm sticky top-0 z-10 bg-cat-crust/80">
-                                <div>
-                                    <h1 className="text-lg font-bold text-cat-text tracking-tight">Incoming Feed</h1>
-                                    <p className="text-xs text-cat-overlay0 font-mono">LIVE MONITORING ACTIVE</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                     <div className="w-2 h-2 rounded-full bg-cat-green animate-pulse"></div>
-                                     <span className="text-[10px] font-mono text-cat-green">SYSTEM ONLINE</span>
-                                </div>
-                            </div>
-                         
-                            {isLoading ? (
-                                <div className="p-10 text-center text-cat-overlay0 font-mono text-sm">LOADING FEED...</div>
-                            ) : (
-                                <IncidentFeed 
-                                    incidents={incidents} 
-                                    selectedId={selectedIncidentId} 
-                                    onSelect={handleSelectIncident} 
-                                />
-                            )}
-                        </div>
+                     <IncidentDashboard incidents={incidents} isLoading={isLoading} onUpdateStatus={handleUpdateStatus} />
+                } />
 
-                         {/* Details Column */}
-                        <div className="col-span-7 h-full">
-                            <IncidentDetails 
-                                incident={selectedIncident} 
-                                onUpdateStatus={handleUpdateStatus}
-                            />
-                        </div>
-                     </div>
+                <Route path="/incidents/:id" element={
+                     <IncidentDashboard incidents={incidents} isLoading={isLoading} onUpdateStatus={handleUpdateStatus} />
                 } />
 
                 {/* Map Views */}
@@ -111,6 +120,7 @@ function Dashboard() {
                 <Route path="/map/incident/:id" element={<FullMapController incidents={incidents} onSelect={handleMapSelect} />} />
                 <Route path="/map/category/:category" element={<FullMapController incidents={incidents} onSelect={handleMapSelect} />} />
                 <Route path="/map/cluster" element={<FullMapController incidents={incidents} onSelect={handleMapSelect} />} />
+                <Route path="/responders" element={<RespondersMap />} />
             </Routes>
         </main>
     </div>

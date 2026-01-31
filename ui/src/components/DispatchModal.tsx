@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Incident, Responder } from '@/lib/api';
+import { Incident, Responder, getResponderRecommendation } from '@/lib/api';
 import { useNearbyResponders, useDispatcher } from '@/hooks/useResponders';
-import { X, Shield, Flame, Stethoscope, Navigation, Zap, Radio } from 'lucide-react'; 
+import { X, Shield, Flame, Stethoscope, Navigation, Zap, Radio, Bot } from 'lucide-react'; 
 import Map, { Marker, Source, Layer, MapRef } from 'react-map-gl/maplibre';
 import clsx from 'clsx';
+import { useQuery } from '@tanstack/react-query';
 
 interface DispatchModalProps {
     incident: Incident;
@@ -11,7 +12,7 @@ interface DispatchModalProps {
 }
 
 export default function DispatchModal({ incident, onClose }: DispatchModalProps) {
-    const [aiMode, setAiMode] = useState(false);
+    const [aiMode, setAiMode] = useState(true);
     const [selectedResponderId, setSelectedResponderId] = useState<number | null>(null);
     const [hoveredResponderId, setHoveredResponderId] = useState<number | null>(null);
     
@@ -22,20 +23,33 @@ export default function DispatchModal({ incident, onClose }: DispatchModalProps)
         true
     );
     
+    // Fetch AI Recommendation
+    const { data: recommendation, isLoading: isAiLoading } = useQuery({
+        queryKey: ['recommendation', incident.id],
+        queryFn: () => getResponderRecommendation(incident.id),
+        enabled: aiMode,
+        staleTime: Infinity
+    });
+
     const responders = respondersData as Responder[] | undefined;
+    
+    // Filter responders based on AI recommendation if active
+    const displayedResponders = aiMode && recommendation 
+        ? responders?.filter(r => r.type === recommendation.recommended_type)
+        : responders;
 
     const { mutate: dispatch, isPending: isDispatching } = useDispatcher();
 
     // AI Logic: Select top eligible responder when AI mode is active
     useEffect(() => {
-        if (aiMode && responders && responders.length > 0) {
-            // Logic: Closest IDLE unit
-            const bestUnit = responders.find((r: Responder) => r.status === 'idle');
+        if (aiMode && displayedResponders && displayedResponders.length > 0) {
+            // Logic: Closest IDLE unit of the recommended type
+            const bestUnit = displayedResponders.find((r: Responder) => r.status === 'idle');
             if (bestUnit) {
                 setSelectedResponderId(bestUnit.id);
             }
         }
-    }, [aiMode, responders]);
+    }, [aiMode, displayedResponders]);
 
     const handleDispatch = () => {
         if (selectedResponderId) {
@@ -52,6 +66,39 @@ export default function DispatchModal({ incident, onClose }: DispatchModalProps)
         latitude: incident.call?.location_lat || 13.0827,
         zoom: 13
     };
+
+    // Auto-focus map to show both incident and selected/hovered responder
+    useEffect(() => {
+        const targetId = hoveredResponderId || selectedResponderId;
+        const target = displayedResponders?.find((r: Responder) => r.id === targetId);
+
+        if (target && mapRef.current && incident.call?.location_long && incident.call?.location_lat) {
+            const minLng = Math.min(incident.call.location_long, target.longitude);
+            const minLat = Math.min(incident.call.location_lat, target.latitude);
+            const maxLng = Math.max(incident.call.location_long, target.longitude);
+            const maxLat = Math.max(incident.call.location_lat, target.latitude);
+
+            try {
+                mapRef.current.fitBounds(
+                    [[minLng, minLat], [maxLng, maxLat]], 
+                    { 
+                        padding: 100, 
+                        duration: 1000,
+                        maxZoom: 15
+                    }
+                );
+            } catch (error) {
+                console.error("Map bounds error:", error);
+            }
+        } else if (mapRef.current && incident.call?.location_long && incident.call?.location_lat) {
+             // Reset if no target
+             mapRef.current.flyTo({
+                center: [incident.call.location_long, incident.call.location_lat],
+                zoom: 13,
+                duration: 1000
+             });
+        }
+    }, [hoveredResponderId, selectedResponderId, displayedResponders]);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -81,17 +128,37 @@ export default function DispatchModal({ incident, onClose }: DispatchModalProps)
                                 <div className="w-9 h-5 bg-cat-surface1 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cat-mauve"></div>
                             </div>
                         </label>
-                        {aiMode && <p className="text-[10px] text-cat-mauve/80 mt-1 px-2">System will automatically select the nearest available unit.</p>}
+                        {aiMode && <p className="text-[10px] text-cat-mauve/80 mt-1 px-2">System will analyze incident content to recommend appropriate unit types.</p>}
+                        
+                        {/* Recommendation Reasoning */}
+                        {aiMode && recommendation && (
+                            <div className="mt-2 mx-2 p-2 bg-cat-mauve/10 border border-cat-mauve/20 rounded text-xs text-cat-text flex gap-2 items-start animate-in fade-in slide-in-from-top-2">
+                                <Bot className="w-4 h-4 text-cat-mauve shrink-0 mt-0.5" />
+                                <div>
+                                    <span className="font-bold text-cat-mauve uppercase">AI Recommendation: {recommendation.recommended_type}</span>
+                                    <p className="opacity-80 leading-snug">{recommendation.reasoning}</p>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {aiMode && isAiLoading && (
+                             <div className="mt-2 mx-2 p-2 text-xs text-cat-overlay0 animate-pulse flex items-center gap-2">
+                                <span className="w-2 h-2 bg-cat-mauve rounded-full"></span>
+                                Analyzing incident context...
+                             </div>
+                        )}
                     </div>
 
                     {/* Responders List */}
                     <div className="flex-1 overflow-y-auto p-2 space-y-2">
                         {isLoading ? (
                             <div className="text-center py-10 text-cat-overlay0 text-sm">Scanning for nearby units...</div>
-                        ) : responders?.length === 0 ? (
-                            <div className="text-center py-10 text-cat-red text-sm font-bold">NO UNITS IN RANGE</div>
+                        ) : displayedResponders?.length === 0 ? (
+                            <div className="text-center py-10 text-cat-red text-sm font-bold">
+                                {aiMode && recommendation ? `NO ${recommendation.recommended_type.toUpperCase()} UNITS IN RANGE` : "NO UNITS IN RANGE"}
+                            </div>
                         ) : (
-                            responders?.map((unit: Responder) => {
+                            displayedResponders?.map((unit: Responder) => {
                                 const isSelected = selectedResponderId === unit.id;
                                 
                                 return (
@@ -169,7 +236,8 @@ export default function DispatchModal({ incident, onClose }: DispatchModalProps)
                         initialViewState={initialViewState}
                         style={{width: '100%', height: '100%'}}
                         mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-                        interactive={false} // Semi-static view mainly for visualization
+                        attributionControl={false}
+                        // interactive={true} // Default is true, enabled for zoom/pan
                     >
                         {/* Incident Marker */}
                         <Marker
@@ -186,7 +254,7 @@ export default function DispatchModal({ incident, onClose }: DispatchModalProps)
                         </Marker>
 
                         {/* Responder Markers */}
-                        {responders?.map((r: Responder) => (
+                        {displayedResponders?.map((r: Responder) => (
                              <Marker
                                 key={`r-${r.id}`}
                                 longitude={r.longitude}
@@ -207,7 +275,7 @@ export default function DispatchModal({ incident, onClose }: DispatchModalProps)
                         {/* Visual Path for Hovered/Selected */}
                         {(hoveredResponderId || selectedResponderId) && (() => {
                             const targetId = hoveredResponderId || selectedResponderId;
-                            const target = responders?.find((r: Responder) => r.id === targetId);
+                            const target = displayedResponders?.find((r: Responder) => r.id === targetId);
                             if (!target || !target.longitude) return null;
 
                             return (
@@ -229,10 +297,9 @@ export default function DispatchModal({ incident, onClose }: DispatchModalProps)
                                         id="route-line-layer"
                                         type="line"
                                         paint={{
-                                            'line-color': '#89b4fa',
-                                            'line-width': 3,
-                                            'line-dasharray': [2, 2],
-                                            'line-opacity': 0.8
+                                            'line-color': '#f9e2af', // Yellow/Gold for better visibility
+                                            'line-width': 4,
+                                            'line-opacity': 1
                                         }}
                                     />
                                 </Source>
@@ -243,7 +310,7 @@ export default function DispatchModal({ incident, onClose }: DispatchModalProps)
 
                     {/* Map Overlay Text */}
                     <div className="absolute top-4 right-4 bg-black/50 backdrop-blur text-cat-text text-xs font-mono p-2 rounded border border-white/10">
-                        EST. DISTANCE: {((hoveredResponderId || selectedResponderId) ? responders?.find((r: Responder) => r.id === (hoveredResponderId || selectedResponderId))?.distance?.toFixed(2) + " km" : "--")}
+                        EST. DISTANCE: {((hoveredResponderId || selectedResponderId) ? displayedResponders?.find((r: Responder) => r.id === (hoveredResponderId || selectedResponderId))?.distance?.toFixed(2) + " km" : "--")}
                     </div>
                 </div>
             </div>

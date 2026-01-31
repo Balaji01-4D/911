@@ -19,6 +19,7 @@ class ResponderResponse(ResponderBase):
     id: int
     status: ResponderStatus
     current_incident_id: Optional[int] = None
+    distance: Optional[float] = None
 
     class Config:
         from_attributes = True

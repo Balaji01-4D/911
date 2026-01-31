@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.models.models import Incident, EmergencyCall
 from app.models.enums import IncidentStatus, IncidentCategory
 from app.schemas.incident import IncidentCreate, IncidentResponse, IncidentUpdate
-from app.ai.client import analyze_incident_description
+from app.ai.client import analyze_incident_description, get_detailed_analysis
 import shutil
 import os
 import uuid
@@ -221,3 +221,33 @@ async def get_incidents_geojson(
             "generated_at": datetime.utcnow().isoformat()
         }
     }
+
+@router.get("/{incident_id}/analysis")
+async def get_incident_analysis(
+    incident_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get detailed AI analysis for an incident including equipment, 
+    responder count, rescue type, and instructions.
+    """
+    from sqlalchemy.orm import joinedload
+    
+    query = select(Incident).where(Incident.id == incident_id).options(joinedload(Incident.call))
+    result = await db.execute(query)
+    incident = result.scalars().first()
+    
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    
+    # Prepare data for AI analysis
+    incident_data = {
+        "description": incident.call.raw_transcript if incident.call else "",
+        "category": incident.category.value if incident.category else "unknown",
+        "priority": incident.priority_score,
+        "location": f"{incident.call.location_lat}, {incident.call.location_long}" if incident.call and incident.call.location_lat else "Unknown"
+    }
+    
+    analysis = await get_detailed_analysis(incident_data)
+    
+    return analysis

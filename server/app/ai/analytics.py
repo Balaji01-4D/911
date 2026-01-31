@@ -4,7 +4,7 @@ from app.core.config import settings
 from typing import List, Dict, Any
 
 # Initialize Groq client following the same pattern as client.py
-client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+client = AsyncGroq(api_key=settings.GROQ_API_KEY2)
 
 async def analyze_incident_clusters(incidents_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """

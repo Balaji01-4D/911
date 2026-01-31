@@ -1,4 +1,4 @@
-import { LayoutDashboard, Map as MapIcon, Settings, Radio } from 'lucide-react';
+import { LayoutDashboard, Map as MapIcon, Settings, Radio, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
 export default function Sidebar() {
@@ -23,6 +23,14 @@ export default function Sidebar() {
         >
             <MapIcon className="w-5 h-5" />
             <div className="absolute left-14 bg-cat-surface0 px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-cat-surface1 pointer-events-none text-cat-text z-50">Map View</div>
+        </NavLink>
+
+        <NavLink 
+          to="/responders" 
+          className={({ isActive }) => `p-3 rounded-lg transition-colors group relative ${isActive ? 'bg-cat-surface0 text-cat-text' : 'text-cat-overlay0 hover:bg-cat-surface0 hover:text-cat-text'}`}
+        >
+            <Users className="w-5 h-5" />
+            <div className="absolute left-14 bg-cat-surface0 px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-cat-surface1 pointer-events-none text-cat-text z-50">Responders</div>
         </NavLink>
 
         <button className="p-3 rounded-lg text-cat-overlay0 hover:bg-cat-surface0 hover:text-cat-text transition-colors group relative">

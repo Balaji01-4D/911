@@ -60,6 +60,56 @@ async def analyze_incident_description(description: str) -> dict:
             "summary": "Processing failed, check details."
         }
 
+DETAILED_ANALYSIS_PROMPT = """
+You are an expert emergency response analyst. Analyze the incident and provide detailed operational guidance.
+
+Output a JSON object with these fields:
+1. "situation": Brief description of what is happening (1-2 sentences)
+2. "equipment": Array of specific equipment items needed (e.g., ["Fire extinguisher", "Thermal camera", "Hydraulic rescue tools"])
+3. "responders_count": Object with recommended personnel count per type, e.g. {"fire": 4, "medical": 2, "police": 1}
+4. "rescue_type": The primary rescue operation type (e.g., "Fire suppression", "Medical evacuation", "Search and rescue", "Traffic control")
+5. "instructions": Array of step-by-step instructions for responders (3-5 clear action items)
+
+Be specific and practical. Base recommendations on the incident severity and type.
+"""
+
+async def get_detailed_analysis(incident_data: dict) -> dict:
+    """
+    Get detailed operational analysis for an incident
+    """
+    try:
+        content = f"""Incident Details:
+- Description: {incident_data.get('description', 'N/A')}
+- Category: {incident_data.get('category', 'unknown')}
+- Priority Score: {incident_data.get('priority', 5)}/10
+- Location: {incident_data.get('location', 'Unknown')}"""
+        
+        completion = await client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": DETAILED_ANALYSIS_PROMPT
+                },
+                {
+                    "role": "user",
+                    "content": content,
+                }
+            ],
+            model="llama-3.3-70b-versatile",
+            temperature=0.2,
+            response_format={"type": "json_object"}
+        )
+        return json.loads(completion.choices[0].message.content)
+    except Exception as e:
+        print(f"Error in detailed analysis: {e}")
+        return {
+            "situation": "Unable to analyze incident",
+            "equipment": ["Standard emergency kit"],
+            "responders_count": {"police": 1},
+            "rescue_type": "General response",
+            "instructions": ["Assess situation on arrival", "Report findings to dispatch"]
+        }
+
 async def recommend_response_unit(incident_data: dict) -> dict:
     """
     incident_data should contain 'description' and/or 'category'
